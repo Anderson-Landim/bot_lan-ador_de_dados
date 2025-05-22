@@ -3,13 +3,15 @@ import tkinter as tk
 from ttkbootstrap import Style
 from tkinter.scrolledtext import ScrolledText
 from ttkbootstrap.widgets import Entry, Label, Button, LabelFrame
-from openpyxl import Workbook, load_workbook
 from datetime import datetime
-import os
 import threading
 import time
+import sqlite3
 
+# Estado global
 executando = False
+
+# Produtos padrão
 produtos = {
     "Produto 1": 100.0,
     "Produto 2": 200.0,
@@ -18,7 +20,7 @@ produtos = {
     "Produto 5": 500.0,
 }
 
-# Definições no escopo global
+# Definições globais
 nome_entry = None
 cliente_entry = None
 cnpj_entry = None
@@ -32,59 +34,49 @@ cofins_entry = None
 produto_entries = []
 preco_entries = []
 
+# ==== Funções SQLite ====
 
-def inicializar_excel(nome_arquivo):
-    if not nome_arquivo.endswith(".xlsx"):
-        nome_arquivo += ".xlsx"
-    if not os.path.exists(nome_arquivo):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Notas"
-        ws.append(
-            [
-                "Data",
-                "Cliente",
-                "CNPJ",
-                "Produto",
-                "Preço Unitário",
-                "ICMS",
-                "IPI",
-                "PIS",
-                "COFINS",
-                "Valor Total",
-            ]
+
+def inicializar_banco(nome_banco="notas.db"):
+    conn = sqlite3.connect(nome_banco)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS notas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data TEXT,
+            cliente TEXT,
+            cnpj TEXT,
+            produto TEXT,
+            preco_unitario TEXT,
+            icms TEXT,
+            ipi TEXT,
+            pis TEXT,
+            cofins TEXT,
+            valor_total TEXT
         )
-        wb.save(nome_arquivo)
+    """
+    )
+    conn.commit()
+    conn.close()
 
 
-def salvar_linha_excel(linha, nome_arquivo):
-    if not nome_arquivo.endswith(".xlsx"):
-        nome_arquivo += ".xlsx"
+def salvar_linha_sqlite(linha, nome_banco="notas.db"):
+    conn = sqlite3.connect(nome_banco)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO notas (
+            data, cliente, cnpj, produto, preco_unitario, icms, ipi, pis, cofins, valor_total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """,
+        linha,
+    )
+    conn.commit()
+    conn.close()
 
-    if not os.path.exists(nome_arquivo):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Lançamentos"
-        ws.append(
-            [
-                "Data",
-                "Cliente",
-                "CNPJ",
-                "Produto",
-                "Preço Unitário",
-                "ICMS",
-                "IPI",
-                "PIS",
-                "COFINS",
-                "Valor Total",
-            ]
-        )
-        wb.save(nome_arquivo)
 
-    wb = load_workbook(nome_arquivo)
-    ws = wb.active
-    ws.append(linha)
-    wb.save(nome_arquivo)
+# ==== Funções de geração e erro ====
 
 
 def erro_ocorre(probabilidade_percentual):
@@ -115,6 +107,7 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro):
     produto = random.choice(list(produtos.keys()))
     preco_unitario = produtos[produto]
     impostos_valores = {}
+
     for nome, porcentagem in impostos.items():
         imposto = preco_unitario * (porcentagem / 100)
         if erro_ocorre(prob_erro):
@@ -147,54 +140,33 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro):
     ]
 
 
+# ==== Loop de lançamento ====
+
+
 def loop_continuo(
-    cliente,
-    cnpj,
-    impostos,
-    intervalo,
-    quantidade,
-    nome_arquivo,
-    status_label,
-    prob_erro,
+    cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro
 ):
     global executando
     while executando:
         for _ in range(quantidade):
             nota = gerar_nota(cliente, cnpj, impostos, prob_erro)
-            salvar_linha_excel(nota, nome_arquivo)
+            salvar_linha_sqlite(nota)
             mensagem = f"Nota lançada: {nota[3]} - R${nota[4]}"
             status_label.config(text=mensagem)
             escrever_log(mensagem)
         time.sleep(intervalo)
 
-def nome_arquivo_valido(nome):
-    nome = nome.strip().replace("/", "_").replace("\\", "_").replace(":", "_")
-    if not nome.lower().endswith(".xlsx"):
-        nome += ".xlsx"
-    return nome
+
+# ==== Função Iniciar ====
 
 
 def iniciar():
     global executando, produtos
 
-    global nome_entry, cliente_entry, cnpj_entry
-    global intervalo_entry, quantidade_entry, erro_entry
-    global icms_entry, ipi_entry, pis_entry, cofins_entry
-    global produto_entries, preco_entries
-
     executando = True
 
     cliente = cliente_entry.get()
     cnpj = cnpj_entry.get()
-
-    nome_arquivo = nome_entry.get().strip()
-
-    if not nome_arquivo or nome_arquivo.lower().startswith("produto"):
-        nome_arquivo = "notas_avancado.xlsx"
-
-    if not nome_arquivo.endswith(".xlsx"):
-        nome_arquivo += ".xlsx"
-
 
     intervalo = int(intervalo_entry.get())
     quantidade = int(quantidade_entry.get())
@@ -211,28 +183,18 @@ def iniciar():
     for nome_entry, preco_entry in zip(produto_entries, preco_entries):
         nome_produto = nome_entry.get().strip()
         if not nome_produto:
-            continue  # pula produtos sem nome
+            continue
         try:
             preco_produto = float(preco_entry.get())
             produtos[nome_produto] = preco_produto
         except ValueError:
             pass
 
-
-    inicializar_excel(nome_arquivo)
+    inicializar_banco()
     status_label.config(text="Bot rodando...", foreground="green")
     thread = threading.Thread(
         target=loop_continuo,
-        args=(
-            cliente,
-            cnpj,
-            impostos,
-            intervalo,
-            quantidade,
-            nome_arquivo,
-            status_label,
-            prob_erro,
-        ),
+        args=(cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro),
         daemon=True,
     )
     thread.start()
@@ -244,9 +206,10 @@ def parar():
     status_label.config(text="Bot parado.", foreground="orange")
 
 
-# GUI
+# ==== GUI ====
+
 root = tk.Tk()
-root.title("Bot Lançador de NF Avançado")
+root.title("Bot Lançador de NF com SQLite")
 style = Style("cyborg")
 root.geometry("1200x800")
 
@@ -265,7 +228,8 @@ def criar_label_entry(container, texto, entry_default=""):
     return entry
 
 
-# Lado Esquerdo
+# ==== Lado Esquerdo ====
+
 cliente_frame = LabelFrame(esquerda_frame, text="🧾 Dados do Cliente")
 cliente_frame.pack(fill="x", pady=5)
 cliente_entry = criar_label_entry(cliente_frame, "Cliente:", "Empresa Exemplo")
@@ -280,9 +244,6 @@ cofins_entry = criar_label_entry(impostos_frame, "COFINS (%):", "7.6")
 
 config_frame = LabelFrame(esquerda_frame, text="⚙️ Configurações")
 config_frame.pack(fill="x", pady=5)
-nome_entry = criar_label_entry(
-    config_frame, "Nome do Arquivo Excel:", "notas_avancado.xlsx"
-)
 intervalo_entry = criar_label_entry(
     config_frame, "Intervalo entre ciclos (segundos):", "5"
 )
@@ -291,7 +252,9 @@ quantidade_entry = criar_label_entry(
 )
 erro_entry = criar_label_entry(config_frame, "Probabilidade de Erro (%):", "10")
 
-# Produtos e Preços com adicionar/remover
+
+# ==== Produtos ====
+
 produtos_frame = LabelFrame(direita_frame, text="📦 Produtos e Preços")
 produtos_frame.pack(fill="both", expand=True, pady=5)
 produto_entries = []
@@ -302,7 +265,6 @@ def atualizar_produtos_frame():
     for widget in produtos_frame.winfo_children():
         widget.destroy()
 
-    # 🛑 Limpa as listas de entradas para evitar erro de referência
     produto_entries.clear()
     preco_entries.clear()
 
@@ -352,7 +314,8 @@ def remover_produto():
         atualizar_produtos_frame()
 
 
-# Inicializa com 5 produtos
+# ==== Inicializa com produtos ====
+
 for i in range(5):
     produto_entry = Entry(produtos_frame, width=30)
     produto_entry.insert(0, f"Produto {i+1}")
@@ -363,7 +326,8 @@ for i in range(5):
 
 atualizar_produtos_frame()
 
-# Botões principais
+# ==== Botões principais ====
+
 botoes_frame = tk.Frame(root)
 botoes_frame.pack(pady=15)
 Button(
@@ -372,6 +336,9 @@ Button(
 Button(botoes_frame, text="■ Parar Lançamento", bootstyle="danger", command=parar).pack(
     side="left", padx=10
 )
+
+
+# ==== Log ====
 
 log_frame = LabelFrame(root, text="📜 Log de Execução")
 log_frame.pack(fill="both", expand=True, padx=10, pady=5)
@@ -383,14 +350,12 @@ log_text.pack(fill="both", expand=True, padx=5, pady=5)
 def escrever_log(mensagem):
     log_text.config(state="normal")
     log_text.insert("end", f"{datetime.now().strftime('%H:%M:%S')} - {mensagem}\n")
-    log_text.yview("end")  # Scroll automático para o final
+    log_text.yview("end")
     log_text.config(state="disabled")
 
 
 status_label = Label(root, text="", anchor="center", font=("Segoe UI", 10, "bold"))
 status_label.pack(pady=10)
 
+
 root.mainloop()
-
-
-config
