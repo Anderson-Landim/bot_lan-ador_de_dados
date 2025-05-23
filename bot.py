@@ -126,11 +126,6 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None
         impostos_valores[nome] = imposto
 
     valor_total = preco_total
-    for imposto in impostos_valores.values():
-        try:
-            valor_total += float(imposto)
-        except ValueError:
-            pass
 
     # Aplica erro no preço total ou unitário, se necessário
     if erro_ocorre(prob_erro):
