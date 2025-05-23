@@ -48,6 +48,7 @@ def inicializar_banco(nome_banco="notas.db"):
             cliente TEXT,
             cnpj TEXT,
             produto TEXT,
+            quantidade TEXT,
             preco_unitario TEXT,
             icms TEXT,
             ipi TEXT,
@@ -67,8 +68,8 @@ def salvar_linha_sqlite(linha, nome_banco="notas.db"):
     cursor.execute(
         """
         INSERT INTO notas (
-            data, cliente, cnpj, produto, preco_unitario, icms, ipi, pis, cofins, valor_total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            data, cliente, cnpj, produto, quantidade, preco_unitario, icms, ipi, pis, cofins, valor_total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         linha,
     )
@@ -103,26 +104,35 @@ def aplicar_erro(valor):
     return valor_str
 
 
-def gerar_nota(cliente, cnpj, impostos, prob_erro):
+def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None):
     produto = random.choice(list(produtos.keys()))
     preco_unitario = produtos[produto]
-    impostos_valores = {}
 
+    # Quantidade aleatória entre 1 e 10
+    if quantidade_personalizada is not None:
+        quantidade = quantidade_personalizada
+    else:
+        quantidade = random.randint(1, 10)
+
+    preco_total = preco_unitario * quantidade
+
+    impostos_valores = {}
     for nome, porcentagem in impostos.items():
-        imposto = preco_unitario * (porcentagem / 100)
+        imposto = preco_total * (porcentagem / 100)
         if erro_ocorre(prob_erro):
             imposto = aplicar_erro(imposto)
         else:
             imposto = round(imposto, 2)
         impostos_valores[nome] = imposto
 
-    valor_total = preco_unitario
+    valor_total = preco_total
     for imposto in impostos_valores.values():
         try:
             valor_total += float(imposto)
         except ValueError:
             pass
 
+    # Aplica erro no preço total ou unitário, se necessário
     if erro_ocorre(prob_erro):
         preco_unitario = aplicar_erro(preco_unitario)
 
@@ -131,6 +141,7 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro):
         cliente,
         cnpj,
         produto,
+        quantidade,
         preco_unitario,
         impostos_valores["ICMS"],
         impostos_valores["IPI"],
@@ -147,12 +158,33 @@ def loop_continuo(
     cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro
 ):
     global executando
+    try:
+        quantidade_por_nota = int(quantidade_por_nota_entry.get())
+    except ValueError:
+        quantidade_por_nota = None  # Aleatório
+
     while executando:
         for _ in range(quantidade):
-            nota = gerar_nota(cliente, cnpj, impostos, prob_erro)
+            nota = gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_por_nota)
             salvar_linha_sqlite(nota)
-            mensagem = f"Nota lançada: {nota[3]} - R${nota[4]}"
-            status_label.config(text=mensagem)
+
+            mensagem = (
+                f"Nota lançada:\n"
+                f"  Data: {nota[0]}\n"
+                f"  Cliente: {nota[1]}\n"
+                f"  CNPJ: {nota[2]}\n"
+                f"  Produto: {nota[3]}\n"
+                f"  Quantidade: {nota[4]}\n"
+                f"  Preço Unitário: {nota[5]}\n"
+                f"  ICMS: {nota[6]}\n"
+                f"  IPI: {nota[7]}\n"
+                f"  PIS: {nota[8]}\n"
+                f"  COFINS: {nota[9]}\n"
+                f"  Valor Total: {nota[10]}\n"
+                f"=============================\n"
+            )
+
+            status_label.config(text=f"Última nota: {nota[3]} - R${nota[10]}")
             escrever_log(mensagem)
         time.sleep(intervalo)
 
@@ -251,6 +283,11 @@ quantidade_entry = criar_label_entry(
     config_frame, "Quantidade de notas por ciclo:", "2"
 )
 erro_entry = criar_label_entry(config_frame, "Probabilidade de Erro (%):", "10")
+Label(config_frame, text="Quantidade por nota (deixe vazio p/ aleatório):").pack(
+    anchor="w", padx=10, pady=(10, 0)
+)
+quantidade_por_nota_entry = Entry(config_frame)
+quantidade_por_nota_entry.pack(fill="x", padx=10)
 
 
 # ==== Produtos ====
