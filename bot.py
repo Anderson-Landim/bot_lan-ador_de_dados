@@ -1,3 +1,4 @@
+# === Importação de bibliotecas ===
 import random
 import tkinter as tk
 from ttkbootstrap import Style
@@ -8,10 +9,10 @@ import threading
 import time
 import sqlite3
 
-# Estado global
-executando = False
+# === Variáveis globais ===
+executando = False  # Estado do bot (rodando ou não)
 
-# Produtos padrão
+# Produtos padrão para inicialização
 produtos = {
     "Produto 1": 100.0,
     "Produto 2": 200.0,
@@ -20,7 +21,7 @@ produtos = {
     "Produto 5": 500.0,
 }
 
-# Definições globais
+# Referências globais para os campos da interface
 nome_entry = None
 cliente_entry = None
 cnpj_entry = None
@@ -34,9 +35,9 @@ cofins_entry = None
 produto_entries = []
 preco_entries = []
 
-# ==== Funções SQLite ====
+# === Banco de Dados SQLite ===
 
-
+# Cria o banco de dados e a tabela se não existir
 def inicializar_banco(nome_banco="notas.db"):
     conn = sqlite3.connect(nome_banco)
     cursor = conn.cursor()
@@ -61,7 +62,7 @@ def inicializar_banco(nome_banco="notas.db"):
     conn.commit()
     conn.close()
 
-
+# Salva uma nota fiscal no banco de dados
 def salvar_linha_sqlite(linha, nome_banco="notas.db"):
     conn = sqlite3.connect(nome_banco)
     cursor = conn.cursor()
@@ -76,39 +77,38 @@ def salvar_linha_sqlite(linha, nome_banco="notas.db"):
     conn.commit()
     conn.close()
 
+# === Gerador de Erros ===
 
-# ==== Funções de geração e erro ====
-
-
+# Verifica se um erro deve ocorrer, baseado na probabilidade (%)
 def erro_ocorre(probabilidade_percentual):
     return random.random() < (probabilidade_percentual / 100)
 
-
+# Aplica um erro no valor de entrada
 def aplicar_erro(valor):
     valor_str = str(valor)
     erro_tipo = random.choice(["virgula", "letra", "soma_errada", "numero_errado"])
+
     if erro_tipo == "virgula":
         return valor_str.replace(".", ",", 1)
     elif erro_tipo == "letra":
         pos = random.randint(0, len(valor_str) - 1)
-        return (
-            valor_str[:pos]
-            + random.choice("abcdefghijklmnopqrstuvwxyz")
-            + valor_str[pos:]
-        )
+        return valor_str[:pos] + random.choice("abcdefghijklmnopqrstuvwxyz") + valor_str[pos:]
     elif erro_tipo == "soma_errada":
         erro = random.uniform(-10, 10)
         return round(float(valor) + erro, 2)
     elif erro_tipo == "numero_errado":
         return valor_str[:-1] + str(random.randint(0, 9))
+
     return valor_str
 
+# === Geração de Notas ===
 
+# Gera uma nota fiscal simulada com ou sem erro
 def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None):
     produto = random.choice(list(produtos.keys()))
     preco_unitario = produtos[produto]
 
-    # Quantidade aleatória entre 1 e 10
+    # Define quantidade (personalizada ou aleatória)
     if quantidade_personalizada is not None:
         quantidade = quantidade_personalizada
     else:
@@ -116,6 +116,7 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None
 
     preco_total = preco_unitario * quantidade
 
+    # Calcula os impostos
     impostos_valores = {}
     for nome, porcentagem in impostos.items():
         imposto = preco_total * (porcentagem / 100)
@@ -127,7 +128,7 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None
 
     valor_total = preco_total
 
-    # Aplica erro no preço total ou unitário, se necessário
+    # Aplica erro no preço unitário se necessário
     if erro_ocorre(prob_erro):
         preco_unitario = aplicar_erro(preco_unitario)
 
@@ -145,18 +146,15 @@ def gerar_nota(cliente, cnpj, impostos, prob_erro, quantidade_personalizada=None
         valor_total,
     ]
 
+# === Loop Contínuo de Lançamento ===
 
-# ==== Loop de lançamento ====
-
-
-def loop_continuo(
-    cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro
-):
+# Loop que gera notas em ciclos até ser parado
+def loop_continuo(cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro):
     global executando
     try:
         quantidade_por_nota = int(quantidade_por_nota_entry.get())
     except ValueError:
-        quantidade_por_nota = None  # Aleatório
+        quantidade_por_nota = None  # Se não preenchido, usa quantidade aleatória
 
     while executando:
         for _ in range(quantidade):
@@ -183,13 +181,11 @@ def loop_continuo(
             escrever_log(mensagem)
         time.sleep(intervalo)
 
+# === Funções de Controle ===
 
-# ==== Função Iniciar ====
-
-
+# Inicia o lançamento das notas
 def iniciar():
     global executando, produtos
-
     executando = True
 
     cliente = cliente_entry.get()
@@ -219,6 +215,7 @@ def iniciar():
 
     inicializar_banco()
     status_label.config(text="Bot rodando...", foreground="green")
+
     thread = threading.Thread(
         target=loop_continuo,
         args=(cliente, cnpj, impostos, intervalo, quantidade, status_label, prob_erro),
@@ -226,27 +223,28 @@ def iniciar():
     )
     thread.start()
 
-
+# Para o lançamento das notas
 def parar():
     global executando
     executando = False
     status_label.config(text="Bot parado.", foreground="orange")
 
+# === Interface Gráfica (GUI) ===
 
-# ==== GUI ====
-
+# Janela principal
 root = tk.Tk()
 root.title("Bot Lançador de NF com SQLite")
-style = Style("cyborg")
+style = Style("cyborg")  # Tema escuro
 root.geometry("1200x800")
 
+# Frames laterais
 esquerda_frame = tk.Frame(root)
 esquerda_frame.pack(side="left", fill="both", expand=True, padx=10, pady=10)
 
 direita_frame = tk.Frame(root)
 direita_frame.pack(side="right", fill="both", expand=True, padx=10, pady=10)
 
-
+# Cria um par Label + Entry
 def criar_label_entry(container, texto, entry_default=""):
     Label(container, text=texto).pack(anchor="w", padx=10, pady=(10, 0))
     entry = Entry(container)
@@ -254,14 +252,15 @@ def criar_label_entry(container, texto, entry_default=""):
     entry.pack(fill="x", padx=10)
     return entry
 
+# ==== Configurações do lado esquerdo ====
 
-# ==== Lado Esquerdo ====
-
+# Dados do cliente
 cliente_frame = LabelFrame(esquerda_frame, text="🧾 Dados do Cliente")
 cliente_frame.pack(fill="x", pady=5)
 cliente_entry = criar_label_entry(cliente_frame, "Cliente:", "Empresa Exemplo")
 cnpj_entry = criar_label_entry(cliente_frame, "CNPJ:", "12.345.678/0001-90")
 
+# Impostos
 impostos_frame = LabelFrame(esquerda_frame, text="💰 Impostos (%)")
 impostos_frame.pack(fill="x", pady=5)
 icms_entry = criar_label_entry(impostos_frame, "ICMS (%):", "18")
@@ -269,30 +268,28 @@ ipi_entry = criar_label_entry(impostos_frame, "IPI (%):", "5")
 pis_entry = criar_label_entry(impostos_frame, "PIS (%):", "1.65")
 cofins_entry = criar_label_entry(impostos_frame, "COFINS (%):", "7.6")
 
+# Configurações gerais
 config_frame = LabelFrame(esquerda_frame, text="⚙️ Configurações")
 config_frame.pack(fill="x", pady=5)
-intervalo_entry = criar_label_entry(
-    config_frame, "Intervalo entre ciclos (segundos):", "5"
-)
-quantidade_entry = criar_label_entry(
-    config_frame, "Quantidade de notas por ciclo:", "2"
-)
+intervalo_entry = criar_label_entry(config_frame, "Intervalo entre ciclos (segundos):", "5")
+quantidade_entry = criar_label_entry(config_frame, "Quantidade de notas por ciclo:", "2")
 erro_entry = criar_label_entry(config_frame, "Probabilidade de Erro (%):", "10")
+
+# Quantidade por nota (opcional)
 Label(config_frame, text="Quantidade por nota (deixe vazio p/ aleatório):").pack(
     anchor="w", padx=10, pady=(10, 0)
 )
 quantidade_por_nota_entry = Entry(config_frame)
 quantidade_por_nota_entry.pack(fill="x", padx=10)
 
-
-# ==== Produtos ====
+# ==== Configurações do lado direito (Produtos) ====
 
 produtos_frame = LabelFrame(direita_frame, text="📦 Produtos e Preços")
 produtos_frame.pack(fill="both", expand=True, pady=5)
 produto_entries = []
 preco_entries = []
 
-
+# Atualiza os campos de produtos dinamicamente
 def atualizar_produtos_frame():
     for widget in produtos_frame.winfo_children():
         widget.destroy()
@@ -332,62 +329,49 @@ def atualizar_produtos_frame():
     produtos_frame.columnconfigure(1, weight=1)
     produtos_frame.columnconfigure(3, weight=1)
 
-
+# Adiciona um novo produto
 def adicionar_produto():
     novo_nome = f"Produto {len(produtos) + 1}"
     produtos[novo_nome] = 0.00
     atualizar_produtos_frame()
 
-
+# Remove o último produto adicionado
 def remover_produto():
     if produtos:
         ultimo = list(produtos.keys())[-1]
         produtos.pop(ultimo)
         atualizar_produtos_frame()
 
-
-# ==== Inicializa com produtos ====
-
-for i in range(5):
-    produto_entry = Entry(produtos_frame, width=30)
-    produto_entry.insert(0, f"Produto {i+1}")
-    preco_entry = Entry(produtos_frame, width=10)
-    preco_entry.insert(0, str(produtos[f"Produto {i+1}"]))
-    produto_entries.append(produto_entry)
-    preco_entries.append(preco_entry)
-
+# Inicializa os produtos na interface
 atualizar_produtos_frame()
 
 # ==== Botões principais ====
-
 botoes_frame = tk.Frame(root)
 botoes_frame.pack(pady=15)
 Button(
     botoes_frame, text="▶ Iniciar Lançamento", bootstyle="success", command=iniciar
 ).pack(side="left", padx=10)
-Button(botoes_frame, text="■ Parar Lançamento", bootstyle="danger", command=parar).pack(
-    side="left", padx=10
-)
+Button(
+    botoes_frame, text="■ Parar Lançamento", bootstyle="danger", command=parar
+).pack(side="left", padx=10)
 
-
-# ==== Log ====
-
+# ==== Área de Log ====
 log_frame = LabelFrame(root, text="📜 Log de Execução")
 log_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
 log_text = ScrolledText(log_frame, height=15, state="disabled")
 log_text.pack(fill="both", expand=True, padx=5, pady=5)
 
-
+# Escreve uma mensagem no log
 def escrever_log(mensagem):
     log_text.config(state="normal")
     log_text.insert("end", f"{datetime.now().strftime('%H:%M:%S')} - {mensagem}\n")
     log_text.yview("end")
     log_text.config(state="disabled")
 
-
+# ==== Status ====
 status_label = Label(root, text="", anchor="center", font=("Segoe UI", 10, "bold"))
 status_label.pack(pady=10)
 
-
+# ==== Executa a interface ====
 root.mainloop()
