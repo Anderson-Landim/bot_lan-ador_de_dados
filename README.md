@@ -1,93 +1,53 @@
+# 🧾 Bot Lançador de NF Avançado
 
-## 🧾 Bot Lançador de NF Avançado
-
-Este projeto é um **bot automatizador de lançamentos de notas fiscais simuladas** com interface gráfica desenvolvida em **Python** usando `tkinter` e `ttkbootstrap`. O sistema permite configurar cliente, produtos, impostos e gerar notas com possibilidade de  **erros simulados** , gravando tudo em um arquivo Excel.
-
----
-
-
-### ✅ Funcionalidades
-
-* Interface visual com tema escuro moderno (via `ttkbootstrap`)
-* Cadastro de até **5 produtos com preços configuráveis**
-* Definição de **cliente, CNPJ e impostos (ICMS, IPI, PIS, COFINS)**
-* Lançamento contínuo de notas fiscais com:
-  * Quantidade de lançamentos por ciclo
-  * Intervalo entre ciclos
-  * **Probabilidade de erros simulados** nas notas
-* Erros possíveis:
-  * Substituição de `.` por `,`
-  * Inserção de letras no número
-  * Soma incorreta dos valores
-  * Alteração de dígito no número
-* Geração de arquivo `.xlsx` com todos os lançamentos
+Um **bot automatizador de lançamentos de notas fiscais simuladas** com interface gráfica moderna desenvolvida em **Python**, utilizando `tkinter` e `ttkbootstrap`.  
+O sistema permite configurar clientes, produtos, impostos e gerar **notas com erros simulados**, salvando todos os dados em um banco **SQLite3**.
 
 ---
 
-### 🛠️ Tecnologias Utilizadas
+## 🚀 Funcionalidades Principais
 
-* `Python 3`
-* `tkinter` + `ttkbootstrap`
-* `openpyxl`
-* `threading`
-* `random` e `datetime`
+✅ Interface moderna com tema escuro (`ttkbootstrap`)  
+✅ Cadastro de até **5 produtos** com preços configuráveis  
+✅ Definição de **cliente, CNPJ e impostos (ICMS, IPI, PIS, COFINS)**  
+✅ Lançamento contínuo de notas fiscais com:
+- Quantidade de lançamentos por ciclo  
+- Intervalo entre ciclos  
+- **Probabilidade de erros simulados**  
+
+✅ Tipos de erros gerados:
+- Troca de `.` por `,`  
+- Inserção de letras em números  
+- Soma incorreta dos valores  
+- Alteração de dígitos  
+
+✅ Exportação para gravação local no banco `SQLite3`
 
 ---
 
-### 📁 Estrutura do Excel
+## 🧠 Tecnologias Utilizadas
 
-O arquivo gerado (`notas_avancado.xlsx`) contém:
+| Categoria | Tecnologias |
+|------------|--------------|
+| Linguagem  | Python 3 |
+| Interface  | tkinter, ttkbootstrap |
+| Dados      | openpyxl, SQLite3 |
+| Lógica e Simulação | threading, random, datetime |
+
+---
+
+## 📈 Estrutura do Arquivo Excel
+
+O arquivo gerado (`notas_avancado.xlsx`) possui o seguinte formato:
 
 | Data e Hora         | Cliente         | CNPJ               | Produto   | Preço Unitário | ICMS | IPI | PIS  | COFINS | Valor Total |
-| ------------------- | --------------- | ------------------ | --------- | ---------------- | ---- | --- | ---- | ------ | ----------- |
-| 2025-05-19 20:01:00 | Empresa Exemplo | 12.345.678/0001-90 | Produto 1 | 100.0            | 18.0 | 5.0 | 1.65 | 7.6    | 132.25      |
+| ------------------- | --------------- | ------------------ | --------- | --------------- | ---- | --- | ---- | ------ | ----------- |
+| 2025-05-19 20:01:00 | Empresa Exemplo | 12.345.678/0001-90 | Produto 1 | 100.0 | 18.0 | 5.0 | 1.65 | 7.6 | 132.25 |
 
 ---
 
-### 🚀 Como Usar
+## ⚙️ Instalação
 
-1. Instale as dependências (recomenda-se usar um ambiente virtual):
+1. Clone o repositório:
    ```bash
-   pip install ttkbootstrap openpyxl
-   ```
-2. Execute o script:
-   ```bash
-   python bot_nf.py
-   ```
-3. Configure os dados na interface:
-   * Cliente e CNPJ
-   * Impostos (%)
-   * Nome do arquivo Excel
-   * Intervalo e quantidade por ciclo
-   * Probabilidade de erro (%)
-   * Produtos e preços
-4. Clique em **"▶ Iniciar Lançamento"** para começar.
-5. Clique em **"■ Parar Lançamento"** para interromper.
-
----
-
-### 📌 Exemplo de Aplicação
-
-Este bot pode ser usado para:
-
-* Simulações de automação contábil
-* Testes em sistemas de leitura de notas
-* Estudo de erros comuns em documentos fiscais
-* Demonstrações educacionais de manipulação de dados com Python
-* Fazer limpeza de dados
-
----
-
-### 📄 Licença
-
-Este projeto é de uso livre para fins educacionais.
-
----
-
-### 📧 Contato
-
-Se tiver dúvidas ou sugestões, sinta-se à vontade para entrar em contato.
-
-Anderson Landim (35 997280595) anderson_landim@outlook.com.br
-
----
+   git clone https://github.com/Anderson-Landim/bot_gerador_de_dados.git
